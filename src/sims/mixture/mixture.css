@@ -1,0 +1,272 @@
+.mix {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.mix__lead {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+
+/* --- 成分リスト --- */
+
+.mix-list {
+  list-style: none;
+  margin: 0 0 0.9rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.mix-row {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.mix-row__chip {
+  flex: 0 0 auto;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.35rem;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 15%);
+}
+
+.mix-row__field {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* 波長側を強度側より広く取る(刻みが細かく、動かす頻度も高いため)。 */
+.mix-row__field:first-of-type {
+  flex-grow: 1.6;
+}
+
+.mix-row__control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.mix-row__symbol {
+  flex: 0 0 auto;
+  width: 1rem;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.mix-row__slider {
+  flex: 1 1 0;
+  min-width: 3rem;
+  accent-color: var(--accent);
+}
+
+.mix-row__number {
+  flex: 0 0 auto;
+  width: 4.25rem;
+  padding: 0.3rem 0.4rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 0.3rem;
+  color: var(--text);
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.mix-row__number:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.mix-row__unit {
+  flex: 0 0 auto;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.mix-row__remove {
+  flex: 0 0 auto;
+  width: 1.9rem;
+  height: 1.9rem;
+  padding: 0;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 0.3rem;
+  color: var(--text-dim);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.mix-row__remove:hover:not(:disabled) {
+  background: #3a2222;
+  border-color: #7a3b3b;
+  color: #f0c0c0;
+}
+
+.mix-row__remove:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.mix-add {
+  padding: 0.45rem 0.9rem;
+  background: none;
+  border: 1px dashed var(--border);
+  border-radius: 0.35rem;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.mix-add:hover:not(:disabled) {
+  background: var(--bg-panel-hover);
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.mix-add:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* --- プリセット --- */
+
+.mix-presets__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.mix-presets__button {
+  padding: 0.4rem 0.85rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.mix-presets__button:hover {
+  background: var(--bg-panel-hover);
+  border-color: var(--accent);
+}
+
+.mix-presets__hint {
+  margin: 0.75rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--text-dim);
+}
+
+/* --- モード切替 --- */
+
+.mix-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.mix-modes__group {
+  flex: 1 1 20rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 1rem 1.25rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+}
+
+.mix-modes__group legend {
+  margin-bottom: 0;
+  padding: 0 0.35rem;
+}
+
+.mix-modes__option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.mix-modes__option input {
+  margin-top: 0.35rem;
+  accent-color: var(--accent);
+  flex-shrink: 0;
+}
+
+.mix-modes__title {
+  display: block;
+  font-size: 0.92rem;
+}
+
+.mix-modes__hint {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+/* --- 結果 --- */
+
+.mix-result__layout {
+  display: flex;
+  gap: 1.5rem;
+  align-items: stretch;
+}
+
+.mix-result__swatch {
+  flex: 1 1 55%;
+  min-height: 11rem;
+  border-radius: 0.5rem;
+  /* 暗い色のときに矩形の輪郭が背景に溶けないよう、薄い枠を残す。 */
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 12%);
+  transition: background-color 0.08s linear;
+}
+
+.mix-result__values {
+  flex: 1 1 45%;
+  justify-content: center;
+}
+
+.mix-result__notes:not(:empty) {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.mix-result__note {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: var(--text-dim);
+}
+
+@media (max-width: 46rem) {
+  .mix-row {
+    flex-wrap: wrap;
+    gap: 0.5rem 0.75rem;
+  }
+
+  .mix-row__field {
+    flex-basis: 100%;
+  }
+
+  .mix-result__layout {
+    flex-direction: column;
+  }
+}

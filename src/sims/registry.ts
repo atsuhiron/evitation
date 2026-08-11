@@ -43,6 +43,13 @@ export const sims: readonly SimDefinition[] = [
       '可視光の波長を指定すると、CIE 1931 等色関数を通してその単色光に対応する sRGB の色を求める。',
     load: () => import('./monochromatic/index.ts'),
   },
+  {
+    id: 'mixture',
+    title: '単色光の合成',
+    description:
+      '複数の単色光を重ね合わせたときの色を求める。3 本の単色光から白ができること、単一の波長では作れない色があることがわかる。',
+    load: () => import('./mixture/index.ts'),
+  },
 ];
 
 export function findSim(id: string): SimDefinition | undefined {

@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  chromaticityToXYZ,
+  cmfAt,
+  D65,
   relativeLuminance,
   VISIBLE_LAMBDA_MAX,
   VISIBLE_LAMBDA_MIN,
   wavelengthToColor,
-  xyzToDisplayColor,
+  xyzToColor,
 } from './index.ts';
 
 /** 可視域の全波長(1nm 刻み)。 */
@@ -184,13 +187,56 @@ describe('wavelengthToColor: 明るさの正規化', () => {
   });
 });
 
-describe('xyzToDisplayColor', () => {
+describe('xyzToColor', () => {
   it('D65 の白は白として出る', () => {
-    const { rgb8 } = xyzToDisplayColor([0.9505, 1, 1.089]);
+    const { rgb8 } = xyzToColor(chromaticityToXYZ(D65, 1), 'max');
     for (const c of rgb8) expect(Math.abs(c - 255)).toBeLessThanOrEqual(1);
   });
 
   it('黒は黒', () => {
-    expect(xyzToDisplayColor([0, 0, 0]).hex).toBe('#000000');
+    expect(xyzToColor([0, 0, 0]).hex).toBe('#000000');
+  });
+
+  it('輝度が 0 でも色度が定義されていれば黒になる', () => {
+    expect(xyzToColor([0.5, 0, 0.5], 'luminance').hex).toBe('#000000');
+  });
+
+  /**
+   * wavelengthToColor は「単位放射強度の単色光を XYZ に直して xyzToColor に渡すだけ」の
+   * ラッパである、という関係が崩れていないことの担保。
+   */
+  it.each(['max', 'luminance'] as const)(
+    'wavelengthToColor が xyzToColor(cmfAt(λ)) と一致する (%s)',
+    (mode) => {
+      for (let lambda = VISIBLE_LAMBDA_MIN; lambda <= VISIBLE_LAMBDA_MAX; lambda += 7) {
+        const viaWavelength = wavelengthToColor(lambda, mode);
+        const viaXYZ = xyzToColor(cmfAt(lambda), mode);
+        expect(viaWavelength.hex, `${lambda}nm`).toBe(viaXYZ.hex);
+        expect(viaWavelength.linearRGB, `${lambda}nm`).toEqual(viaXYZ.linearRGB);
+        expect(viaWavelength.whiteAdded, `${lambda}nm`).toBe(viaXYZ.whiteAdded);
+      }
+    },
+  );
+});
+
+describe('白飛び (clipped)', () => {
+  it('max モードでは決して立たない', () => {
+    for (const scale of [1, 10, 1000]) {
+      const xyz = cmfAt(555).map((v) => v * scale) as unknown as [number, number, number];
+      expect(xyzToColor(xyz, 'max').clipped).toBe(false);
+    }
+  });
+
+  it('単色光 1 本・単位放射強度なら luminance モードでも立たない', () => {
+    for (let lambda = VISIBLE_LAMBDA_MIN; lambda <= VISIBLE_LAMBDA_MAX; lambda += 1) {
+      expect(xyzToColor(cmfAt(lambda), 'luminance').clipped, `${lambda}nm`).toBe(false);
+    }
+  });
+
+  it('輝度を積み上げると luminance モードで立つ', () => {
+    const single = cmfAt(555);
+    expect(xyzToColor(single, 'luminance').clipped).toBe(false);
+    const piled: [number, number, number] = [single[0] * 5, single[1] * 5, single[2] * 5];
+    expect(xyzToColor(piled, 'luminance').clipped).toBe(true);
   });
 });

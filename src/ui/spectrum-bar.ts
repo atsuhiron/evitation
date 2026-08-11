@@ -1,16 +1,31 @@
 /**
- * 可視光スペクトル帯。
+ * 可視光スペクトル帯(共有コンポーネント)。
  *
- * 横軸に波長を取り、各画素列をその波長の色で塗る。クリック / ドラッグで波長を選べる。
+ * 横軸に波長を取り、各画素列をその波長の色で塗る。任意個のマーカーを重ねられる。
+ * `onSelect` を渡したときだけクリック / ドラッグで波長を選べるようになる。
  */
 
-import { wavelengthToColor } from '../../color/index.ts';
+import './spectrum-bar.css';
+import { wavelengthToColor } from '../color/index.ts';
+
+export interface SpectrumMarker {
+  readonly lambdaNm: number;
+  /**
+   * 線の高さ (0..1)。省略時は 1(全高)。
+   * 合成ページで各成分の強度を高さとして見せるために使う。
+   */
+  readonly weight?: number;
+}
 
 export interface SpectrumBarOptions {
   readonly lambdaMin: number;
   readonly lambdaMax: number;
-  /** 帯の上で波長が選ばれたときに呼ばれる。値は整数 nm に丸めて渡す。 */
-  readonly onSelect: (lambdaNm: number) => void;
+  /**
+   * 帯の上で波長が選ばれたときに呼ばれる。値は整数 nm に丸めて渡す。
+   * 省略すると帯は表示専用になる(成分が複数ある画面では、帯のどこを掴んでも
+   * どれを動かすべきか決まらないため)。
+   */
+  readonly onSelect?: (lambdaNm: number) => void;
 }
 
 export class SpectrumBar {
@@ -28,11 +43,10 @@ export class SpectrumBar {
   private baseImage: ImageData | null = null;
   private renderedWidth = 0;
   private renderedHeight = 0;
-  private lambdaNm: number;
+  private markers: readonly SpectrumMarker[] = [];
 
   constructor(options: SpectrumBarOptions) {
     this.options = options;
-    this.lambdaNm = options.lambdaMin;
 
     this.canvas = document.createElement('canvas');
     this.canvas.className = 'spectrum-bar__canvas';
@@ -49,8 +63,11 @@ export class SpectrumBar {
     this.element.className = 'spectrum-bar';
     this.element.append(this.canvas, this.buildTicks());
 
-    this.canvas.addEventListener('pointerdown', this.handlePointerDown);
-    this.canvas.addEventListener('pointermove', this.handlePointerMove);
+    if (options.onSelect !== undefined) {
+      this.canvas.classList.add('spectrum-bar__canvas--interactive');
+      this.canvas.addEventListener('pointerdown', this.handlePointerDown);
+      this.canvas.addEventListener('pointermove', this.handlePointerMove);
+    }
 
     this.resizeObserver = new ResizeObserver(() => {
       this.refresh();
@@ -80,9 +97,8 @@ export class SpectrumBar {
     this.paint();
   }
 
-  setLambda(lambdaNm: number): void {
-    if (this.lambdaNm === lambdaNm) return;
-    this.lambdaNm = lambdaNm;
+  setMarkers(markers: readonly SpectrumMarker[]): void {
+    this.markers = markers;
     this.paint();
   }
 
@@ -130,7 +146,7 @@ export class SpectrumBar {
 
     const ratio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
     const { lambdaMin, lambdaMax } = this.options;
-    this.options.onSelect(Math.round(lambdaMin + ratio * (lambdaMax - lambdaMin)));
+    this.options.onSelect?.(Math.round(lambdaMin + ratio * (lambdaMax - lambdaMin)));
   }
 
   // --- 描画 ---
@@ -140,7 +156,7 @@ export class SpectrumBar {
    *
    * 明るさは常に最大成分正規化(`max`)で描く。相対輝度で描くと両端が真っ黒に沈んで
    * 「どこがどの波長か」が読めなくなり、目盛りとして機能しなくなるため。
-   * スウォッチ側の表示モードとは意図的に独立させている。
+   * 各ページの表示モードとは意図的に独立させている。
    */
   private renderSpectrum(width: number, height: number): ImageData {
     const image = this.context.createImageData(width, height);
@@ -178,15 +194,26 @@ export class SpectrumBar {
 
     // putImageData は変換行列の影響を受けないので、マーカーもデバイス画素で描く。
     const { lambdaMin, lambdaMax } = this.options;
-    const ratio = (this.lambdaNm - lambdaMin) / (lambdaMax - lambdaMin);
     const dpr = window.devicePixelRatio || 1;
-    const x = ratio * this.renderedWidth;
     const halfWidth = Math.max(1, dpr);
 
-    // 明るい帯の上でも暗い帯の上でも見えるよう、黒枠付きの白線にする。
-    this.context.fillStyle = '#000';
-    this.context.fillRect(x - halfWidth * 2, 0, halfWidth * 4, this.renderedHeight);
-    this.context.fillStyle = '#fff';
-    this.context.fillRect(x - halfWidth, 0, halfWidth * 2, this.renderedHeight);
+    for (const marker of this.markers) {
+      const ratio = (marker.lambdaNm - lambdaMin) / (lambdaMax - lambdaMin);
+      if (ratio < 0 || ratio > 1) continue;
+
+      const x = ratio * this.renderedWidth;
+      const weight = Math.min(1, Math.max(0, marker.weight ?? 1));
+      // 弱い成分や強度 0 の成分も「そこに居る」ことは示したいので下限を設ける。
+      // 比を素直に高さにすると、例えば輝度寄与 1% の成分が 1px 未満になり
+      // 存在ごと見えなくなってしまう。
+      const barHeight = Math.max(this.renderedHeight * weight, halfWidth * 6);
+      const top = this.renderedHeight - barHeight;
+
+      // 明るい帯の上でも暗い帯の上でも見えるよう、黒枠付きの白線にする。
+      this.context.fillStyle = '#000';
+      this.context.fillRect(x - halfWidth * 2, top, halfWidth * 4, barHeight);
+      this.context.fillStyle = '#fff';
+      this.context.fillRect(x - halfWidth, top, halfWidth * 2, barHeight);
+    }
   }
 }
