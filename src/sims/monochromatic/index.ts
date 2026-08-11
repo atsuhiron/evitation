@@ -12,7 +12,9 @@ import {
   type NormalizeMode,
   type WavelengthColor,
 } from '../../color/index.ts';
-import { SpectrumBar } from '../../ui/spectrum-bar.ts';
+import type { GradientBar } from '../../ui/gradient-bar.ts';
+import { createRadioGroup } from '../../ui/radio-group.ts';
+import { createSpectrumBar } from '../../ui/spectrum-bar.ts';
 import { ValueList } from '../../ui/value-list.ts';
 
 /** 初期波長。ナトリウム D 線 (589nm) は身近な単色光の代表例。 */
@@ -25,7 +27,7 @@ interface State {
 
 const state: State = { lambdaNm: DEFAULT_LAMBDA_NM, mode: 'max' };
 
-let spectrumBar: SpectrumBar | null = null;
+let spectrumBar: GradientBar | null = null;
 let values: ValueList;
 
 // mount 時に組み立て、render で中身を書き替える要素。
@@ -115,54 +117,27 @@ function buildWavelengthControl(): HTMLElement {
 }
 
 function buildModeControl(): HTMLElement {
-  const fieldset = document.createElement('fieldset');
-  fieldset.className = 'mono__mode';
-
-  const legend = document.createElement('legend');
-  legend.className = 'field-label';
-  legend.textContent = '明るさの決め方';
-  fieldset.append(legend);
-
-  const modes: Array<{ value: NormalizeMode; label: string; hint: string }> = [
-    {
-      value: 'max',
-      label: '最大成分正規化',
-      hint: 'どの波長も同じ明るさで表示する。色相の比較に向く。',
-    },
-    {
-      value: 'luminance',
-      label: '相対輝度',
-      hint: '表示輝度を視感度 V(λ) に比例させる。555nm が最も明るい。',
-    },
-  ];
-
-  for (const mode of modes) {
-    const option = document.createElement('label');
-    option.className = 'mono__mode-option';
-
-    const radio = document.createElement('input');
-    radio.type = 'radio';
-    radio.name = 'normalize-mode';
-    radio.value = mode.value;
-    radio.checked = state.mode === mode.value;
-    radio.addEventListener('change', () => {
-      if (radio.checked) setMode(mode.value);
-    });
-
-    const text = document.createElement('span');
-    const title = document.createElement('span');
-    title.className = 'mono__mode-title';
-    title.textContent = mode.label;
-    const hint = document.createElement('span');
-    hint.className = 'mono__mode-hint';
-    hint.textContent = mode.hint;
-    text.append(title, hint);
-
-    option.append(radio, text);
-    fieldset.append(option);
-  }
-
-  return fieldset;
+  const group = createRadioGroup<NormalizeMode>(
+    'normalize-mode',
+    '明るさの決め方',
+    [
+      {
+        value: 'max',
+        label: '最大成分正規化',
+        hint: 'どの波長も同じ明るさで表示する。色相の比較に向く。',
+      },
+      {
+        value: 'luminance',
+        label: '相対輝度',
+        hint: '表示輝度を視感度 V(λ) に比例させる。555nm が最も明るい。',
+      },
+    ],
+    () => state.mode,
+    setMode,
+  );
+  // 群がひとつだけの画面なので、選択肢は横に並べる。
+  group.element.classList.add('radio-group--inline');
+  return group.element;
 }
 
 function buildSwatchArea(): HTMLElement {
@@ -178,16 +153,21 @@ function buildSwatchArea(): HTMLElement {
     { key: 'linear', term: 'linear RGB' },
     { key: 'efficiency', term: '視感度 V(λ)' },
   ]);
-  values.element.classList.add('mono__values');
-
-  const layout = document.createElement('div');
-  layout.className = 'mono__result-layout';
-  layout.append(swatch, values.element);
 
   gamutNote = document.createElement('p');
   gamutNote.className = 'mono__gamut-note';
 
-  section.append(layout, gamutNote);
+  // 注記は値の下、スウォッチの右側に置く。パネルの下に敷くと、文章の行数が
+  // 変わったときにパネルの高さが変わってページ全体が動いてしまう。
+  const side = document.createElement('div');
+  side.className = 'mono__result-side';
+  side.append(values.element, gamutNote);
+
+  const layout = document.createElement('div');
+  layout.className = 'mono__result-layout';
+  layout.append(swatch, side);
+
+  section.append(layout);
   return section;
 }
 
@@ -199,7 +179,7 @@ function buildSpectrumSection(): HTMLElement {
   label.className = 'field-label';
   label.textContent = '可視光スペクトル(クリックまたはドラッグで波長を選択)';
 
-  spectrumBar = new SpectrumBar({
+  spectrumBar = createSpectrumBar({
     lambdaMin: VISIBLE_LAMBDA_MIN,
     lambdaMax: VISIBLE_LAMBDA_MAX,
     onSelect: setLambda,
@@ -218,8 +198,8 @@ function formatGamutNote(color: WavelengthColor): string {
   // 白をどれだけ混ぜたかを、正規化後のスケールでの割合として示す。
   const ratio = color.whiteAdded / (color.whiteAdded + Math.max(color.xyz[1], 1e-12));
   return (
-    'この単色光は sRGB の色域外です。表示のために白を混ぜて彩度を落としてあり' +
-    `(白の割合 約 ${(ratio * 100).toFixed(0)}%)、実際にはこれよりも鮮やかな色に見えます。`
+    `この単色光は sRGB の色域外です。白を約 ${(ratio * 100).toFixed(0)}% 混ぜて彩度を` +
+    '落としてあり、実際はこれより鮮やかな色に見えます。'
   );
 }
 
@@ -243,7 +223,7 @@ function render(): void {
   values.set('efficiency', color.luminousEfficiency.toFixed(4), color.luminousEfficiency.toFixed(6));
 
   gamutNote.textContent = formatGamutNote(color);
-  spectrumBar?.setMarkers([{ lambdaNm: state.lambdaNm }]);
+  spectrumBar?.setMarkers([{ value: state.lambdaNm }]);
 }
 
 // --- ライフサイクル -----------------------------------------------------------

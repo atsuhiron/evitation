@@ -50,6 +50,13 @@ export const sims: readonly SimDefinition[] = [
       '複数の単色光を重ね合わせたときの色を求める。3 本の単色光から白ができること、単一の波長では作れない色があることがわかる。',
     load: () => import('./mixture/index.ts'),
   },
+  {
+    id: 'blackbody',
+    title: '黒体放射',
+    description:
+      '温度からプランクの法則で分光分布を求め、その連続スペクトルに対応する色を表示する。ウィーンの変位則と、放射のうち可視域に落ちる割合がわかる。',
+    load: () => import('./blackbody/index.ts'),
+  },
 ];
 
 export function findSim(id: string): SimDefinition | undefined {

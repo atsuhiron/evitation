@@ -170,55 +170,7 @@
   color: var(--text-dim);
 }
 
-/* --- モード切替 --- */
-
-.mix-modes {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-}
-
-.mix-modes__group {
-  flex: 1 1 20rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-  margin: 0;
-  padding: 1rem 1.25rem;
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  border-radius: 0.6rem;
-}
-
-.mix-modes__group legend {
-  margin-bottom: 0;
-  padding: 0 0.35rem;
-}
-
-.mix-modes__option {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-  cursor: pointer;
-}
-
-.mix-modes__option input {
-  margin-top: 0.35rem;
-  accent-color: var(--accent);
-  flex-shrink: 0;
-}
-
-.mix-modes__title {
-  display: block;
-  font-size: 0.92rem;
-}
-
-.mix-modes__hint {
-  display: block;
-  font-size: 0.78rem;
-  color: var(--text-dim);
-  line-height: 1.5;
-}
+/* モード切替は src/ui/radio-group.css。 */
 
 /* --- 結果 --- */
 
@@ -228,31 +180,43 @@
   align-items: stretch;
 }
 
+/*
+ * スウォッチの min-height が行の高さを決める。右側(値 + 注記)がこれを超えない
+ * 限り、注記が出ても引っ込んでもパネルの高さは変わらない。
+ */
 .mix-result__swatch {
   flex: 1 1 55%;
-  min-height: 11rem;
+  min-height: 15rem;
   border-radius: 0.5rem;
   /* 暗い色のときに矩形の輪郭が背景に溶けないよう、薄い枠を残す。 */
   box-shadow: inset 0 0 0 1px rgb(255 255 255 / 12%);
   transition: background-color 0.08s linear;
 }
 
-.mix-result__values {
+.mix-result__side {
   flex: 1 1 45%;
-  justify-content: center;
-}
-
-.mix-result__notes:not(:empty) {
-  margin-top: 1rem;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+/*
+ * 注記の行数が変わっても動かないよう、最大の場合の高さを確保しておく。
+ * このページの最大は「色域外 + 白飛び」の 2 本 = 4 行。
+ */
+.mix-result__notes {
+  min-height: 5.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
 }
 
 .mix-result__note {
   margin: 0;
-  font-size: 0.82rem;
-  line-height: 1.6;
+  font-size: 0.75rem;
+  line-height: 1.55;
   color: var(--text-dim);
 }
 

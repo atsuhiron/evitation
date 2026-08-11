@@ -1,39 +1,39 @@
-.mono {
+.bb {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
 }
 
-.mono__lead {
+.bb__lead {
   margin: 0;
   color: var(--text-dim);
   font-size: 0.9rem;
 }
 
-/* --- 波長入力 --- */
+/* --- 温度入力 --- */
 
-.mono__control-row {
+.bb__control-row {
   display: flex;
   align-items: center;
   gap: 1.25rem;
 }
 
-.mono__slider {
+.bb__slider {
   flex: 1;
   min-width: 0;
   accent-color: var(--accent);
   height: 1.5rem;
 }
 
-.mono__number-group {
+.bb__number-group {
   display: flex;
   align-items: baseline;
   gap: 0.35rem;
   flex-shrink: 0;
 }
 
-.mono__number {
-  width: 5rem;
+.bb__number {
+  width: 5.5rem;
   padding: 0.4rem 0.5rem;
   background: var(--bg);
   border: 1px solid var(--border);
@@ -44,19 +44,51 @@
   text-align: right;
 }
 
-.mono__number:focus {
+.bb__number:focus {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
 
-.mono__unit {
+.bb__unit {
   color: var(--text-dim);
   font-size: 0.9rem;
 }
 
+/* --- プリセット --- */
+
+.bb-presets__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.bb-presets__button {
+  padding: 0.4rem 0.85rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.bb-presets__button:hover {
+  background: var(--bg-panel-hover);
+  border-color: var(--accent);
+}
+
+.bb-presets__hint {
+  margin: 0.75rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--text-dim);
+}
+
 /* --- 結果 --- */
 
-.mono__result-layout {
+.bb-result__layout {
   display: flex;
   gap: 1.5rem;
   align-items: stretch;
@@ -64,18 +96,18 @@
 
 /*
  * スウォッチの min-height が行の高さを決める。右側(値 + 注記)がこれを超えない
- * 限り、注記の行数が変わってもパネルの高さは変わらない。
+ * 限り、注記が出ても引っ込んでもパネルの高さは変わらない。
  */
-.mono__swatch {
+.bb-result__swatch {
   flex: 1 1 55%;
-  min-height: 12rem;
+  min-height: 14rem;
   border-radius: 0.5rem;
   /* 暗い色のときに矩形の輪郭が背景に溶けないよう、薄い枠を残す。 */
   box-shadow: inset 0 0 0 1px rgb(255 255 255 / 12%);
   transition: background-color 0.08s linear;
 }
 
-.mono__result-side {
+.bb-result__side {
   flex: 1 1 45%;
   min-width: 0;
   display: flex;
@@ -86,35 +118,34 @@
 
 /*
  * 注記の行数が変わっても動かないよう、最大の場合の高さを確保しておく。
- * このページは常に 1 本(色域内か色域外か)で、長いほうが 2 行。
+ * このページで実際に出るのは色域外の 1 本(2 行)だが、白飛びと重なる場合に
+ * 備えて 3 行分を取ってある。
  */
-.mono__gamut-note {
+.bb-result__notes {
+  min-height: 3.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.bb-result__note {
   margin: 0;
-  min-height: 2.7rem;
   font-size: 0.75rem;
   line-height: 1.55;
   color: var(--text-dim);
 }
 
-/* 明るさモードは src/ui/radio-group.css(--inline 変種)。 */
-
-/* --- スペクトル帯 --- */
-
-.mono__spectrum .field-label {
-  margin-top: 0;
-}
-
-@media (max-width: 40rem) {
-  .mono__result-layout {
+@media (max-width: 46rem) {
+  .bb-result__layout {
     flex-direction: column;
   }
 
-  .mono__control-row {
+  .bb__control-row {
     flex-wrap: wrap;
     gap: 0.75rem;
   }
 
-  .mono__slider {
+  .bb__slider {
     flex-basis: 100%;
   }
 }

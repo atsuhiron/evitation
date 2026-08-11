@@ -1,0 +1,66 @@
+/*
+ * fieldset には .panel を当てられない(legend との噛み合わせでパディングが崩れる)ので、
+ * パネルと同じ見た目をここで作り直している。
+ */
+.radio-group {
+  flex: 1 1 20rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 1rem 1.25rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+}
+
+.radio-group legend {
+  margin-bottom: 0;
+  padding: 0 0.35rem;
+}
+
+/*
+ * 群がひとつしかない画面では、縦に積むと横幅が余る。選択肢を横に並べる変種。
+ * 群を複数並べる画面(.radio-group-row の中)では幅が足りないので使わない。
+ */
+.radio-group--inline {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+}
+
+.radio-group--inline .radio-group__option {
+  flex: 1 1 16rem;
+}
+
+.radio-group__option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.radio-group__option input {
+  margin-top: 0.35rem;
+  accent-color: var(--accent);
+  flex-shrink: 0;
+}
+
+.radio-group__title {
+  display: block;
+  font-size: 0.92rem;
+}
+
+.radio-group__hint {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+/* 複数の群を横に並べるための入れ物。 */
+.radio-group-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}

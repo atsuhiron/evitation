@@ -1,8 +1,8 @@
-.spectrum-bar {
+.gradient-bar {
   position: relative;
 }
 
-.spectrum-bar__canvas {
+.gradient-bar__canvas {
   display: block;
   width: 100%;
   height: 4.5rem;
@@ -11,17 +11,17 @@
 }
 
 /* onSelect を渡したときだけ、掴める見た目にする。 */
-.spectrum-bar__canvas--interactive {
+.gradient-bar__canvas--interactive {
   cursor: crosshair;
 }
 
-.spectrum-bar__ticks {
+.gradient-bar__ticks {
   position: relative;
   height: 1.25rem;
   margin-top: 0.35rem;
 }
 
-.spectrum-bar__tick {
+.gradient-bar__tick {
   position: absolute;
   transform: translateX(-50%);
   font-size: 0.72rem;

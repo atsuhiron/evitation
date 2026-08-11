@@ -16,7 +16,9 @@ import {
   xyzToColor,
   type NormalizeMode,
 } from '../../color/index.ts';
-import { SpectrumBar } from '../../ui/spectrum-bar.ts';
+import type { GradientBar } from '../../ui/gradient-bar.ts';
+import { createRadioGroup, type RadioGroup } from '../../ui/radio-group.ts';
+import { createSpectrumBar } from '../../ui/spectrum-bar.ts';
 import { ValueList } from '../../ui/value-list.ts';
 import {
   INTENSITY_DIGITS,
@@ -58,7 +60,7 @@ const state: State = {
   brightness: 'max',
 };
 
-let spectrumBar: SpectrumBar | null = null;
+let spectrumBar: GradientBar | null = null;
 let values: ValueList;
 
 // mount 時に組み立て、render で中身を書き替える要素。
@@ -67,6 +69,7 @@ let addButton: HTMLButtonElement;
 let swatch: HTMLElement;
 let notes: HTMLElement;
 let rows: ComponentRow[] = [];
+let modeGroups: RadioGroup[] = [];
 
 // --- 成分の行 -----------------------------------------------------------------
 
@@ -277,65 +280,12 @@ function buildPresetPanel(): HTMLElement {
   return panel;
 }
 
-interface RadioGroupOption<T extends string> {
-  readonly value: T;
-  readonly label: string;
-  readonly hint: string;
-}
-
-const radioInputs: HTMLInputElement[] = [];
-
-function buildRadioGroup<T extends string>(
-  name: string,
-  legend: string,
-  options: readonly RadioGroupOption<T>[],
-  current: () => T,
-  onChange: (value: T) => void,
-): HTMLElement {
-  const fieldset = document.createElement('fieldset');
-  fieldset.className = 'mix-modes__group';
-
-  const caption = document.createElement('legend');
-  caption.className = 'field-label';
-  caption.textContent = legend;
-  fieldset.append(caption);
-
-  for (const option of options) {
-    const wrapper = document.createElement('label');
-    wrapper.className = 'mix-modes__option';
-
-    const radio = document.createElement('input');
-    radio.type = 'radio';
-    radio.name = name;
-    radio.value = option.value;
-    radio.checked = current() === option.value;
-    radio.addEventListener('change', () => {
-      if (radio.checked) onChange(option.value);
-    });
-    radioInputs.push(radio);
-
-    const text = document.createElement('span');
-    const title = document.createElement('span');
-    title.className = 'mix-modes__title';
-    title.textContent = option.label;
-    const hint = document.createElement('span');
-    hint.className = 'mix-modes__hint';
-    hint.textContent = option.hint;
-    text.append(title, hint);
-
-    wrapper.append(radio, text);
-    fieldset.append(wrapper);
-  }
-
-  return fieldset;
-}
-
 function buildModePanel(): HTMLElement {
   const panel = document.createElement('section');
-  panel.className = 'mix-modes';
+  panel.className = 'radio-group-row';
 
-  panel.append(
-    buildRadioGroup<IntensityBasis>(
+  modeGroups = [
+    createRadioGroup<IntensityBasis>(
       'intensity-basis',
       '強度の基準',
       [
@@ -356,7 +306,7 @@ function buildModePanel(): HTMLElement {
         renderResult();
       },
     ),
-    buildRadioGroup<NormalizeMode>(
+    createRadioGroup<NormalizeMode>(
       'brightness-mode',
       '明るさの決め方',
       [
@@ -377,8 +327,9 @@ function buildModePanel(): HTMLElement {
         renderResult();
       },
     ),
-  );
+  ];
 
+  panel.append(...modeGroups.map((group) => group.element));
   return panel;
 }
 
@@ -395,16 +346,22 @@ function buildResultPanel(): HTMLElement {
     { key: 'linear', term: 'linear RGB' },
     { key: 'luminance', term: '合成輝度 Y' },
   ]);
-  values.element.classList.add('mix-result__values');
-
-  const layout = document.createElement('div');
-  layout.className = 'mix-result__layout';
-  layout.append(swatch, values.element);
 
   notes = document.createElement('div');
   notes.className = 'mix-result__notes';
 
-  section.append(layout, notes);
+  // 注記は値の下、スウォッチの右側に置く。パネルの下に敷くと、注記の増減で
+  // パネルの高さが変わってページ全体が動いてしまう。ここなら常にスウォッチの
+  // 高さが支配するので、注記が出ても引っ込んでもレイアウトは動かない。
+  const side = document.createElement('div');
+  side.className = 'mix-result__side';
+  side.append(values.element, notes);
+
+  const layout = document.createElement('div');
+  layout.className = 'mix-result__layout';
+  layout.append(swatch, side);
+
+  section.append(layout);
   return section;
 }
 
@@ -418,7 +375,7 @@ function buildSpectrumPanel(): HTMLElement {
 
   // onSelect は渡さない = 表示専用。成分が複数あるので、帯のどこを掴んでも
   // どの成分を動かすべきか決まらない。
-  spectrumBar = new SpectrumBar({
+  spectrumBar = createSpectrumBar({
     lambdaMin: VISIBLE_LAMBDA_MIN,
     lambdaMax: VISIBLE_LAMBDA_MAX,
   });
@@ -439,10 +396,7 @@ function renderComponents(): void {
 
 /** ラジオの選択状態を state に合わせ直す(プリセットが基準を変えることがある)。 */
 function renderModes(): void {
-  for (const radio of radioInputs) {
-    if (radio.name === 'intensity-basis') radio.checked = radio.value === state.basis;
-    if (radio.name === 'brightness-mode') radio.checked = radio.value === state.brightness;
-  }
+  for (const group of modeGroups) group.sync();
 }
 
 function renderNotes(color: ReturnType<typeof xyzToColor>): void {
@@ -452,15 +406,18 @@ function renderNotes(color: ReturnType<typeof xyzToColor>): void {
   if (color.outOfGamut) {
     const ratio = color.whiteAdded / (color.whiteAdded + Math.max(color.xyz[1], 1e-12));
     messages.push(
-      `この色は sRGB の色域外です。表示のために白を混ぜて彩度を落としてあり(白の割合 約 ${(
-        ratio * 100
-      ).toFixed(0)}%)、実際にはこれよりも鮮やかな色に見えます。`,
+      `sRGB の色域外です。白を約 ${(ratio * 100).toFixed(0)}% 混ぜて彩度を落としてあり、実際はこれより鮮やかな色に見えます。`,
     );
   }
   if (color.clipped) {
     messages.push(
-      '合成後の輝度が表示できる上限を超えています(白飛び)。強度を下げるか、明るさの決め方を「最大成分正規化」にすると本来の色相が見えます。',
+      '合成後の輝度が表示の上限を超えています(白飛び)。強度を下げるか「最大成分正規化」にすると色相が見えます。',
     );
+  }
+  // 何も問題がないときも同じ場所に文章を出す。空にしておくと、確保した余白が
+  // ただの隙間に見えてしまう。
+  if (messages.length === 0) {
+    messages.push('この色は sRGB の色域内に収まっており、表示色は忠実です。');
   }
 
   for (const message of messages) {
@@ -491,7 +448,7 @@ function renderResult(): void {
   const peak = Math.max(...state.components.map((c) => c.intensity), 0);
   spectrumBar?.setMarkers(
     state.components.map((c) => ({
-      lambdaNm: c.lambdaNm,
+      value: c.lambdaNm,
       weight: peak > 0 ? c.intensity / peak : 0,
     })),
   );
@@ -529,5 +486,5 @@ export function unmount(): void {
   spectrumBar = null;
   values.destroy();
   rows = [];
-  radioInputs.length = 0;
+  modeGroups = [];
 }

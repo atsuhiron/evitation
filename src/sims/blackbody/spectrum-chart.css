@@ -1,0 +1,28 @@
+.spectrum-chart {
+  position: relative;
+}
+
+.spectrum-chart__canvas {
+  display: block;
+  width: 100%;
+  height: 18rem;
+  border-radius: 0.35rem;
+  background: var(--bg);
+}
+
+@media (max-width: 46rem) {
+  .spectrum-chart__canvas {
+    height: 14rem;
+  }
+}
+
+/*
+ * 画面が縦に狭いときは図を低くする。
+ * このページは「スライダーを動かしながら図の変化を見る」使い方をするので、
+ * 操作部と図が同時に見えることを図の大きさより優先する。
+ */
+@media (max-height: 42rem) {
+  .spectrum-chart__canvas {
+    height: 13rem;
+  }
+}
