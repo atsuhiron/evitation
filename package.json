@@ -1,0 +1,21 @@
+{
+  "name": "evitation",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "ブラウザで動く物理光学シミュレータ集",
+  "license": "Apache-2.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vite": "^8.2.1",
+    "vitest": "^4.1.10"
+  }
+}

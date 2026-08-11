@@ -1,0 +1,222 @@
+.mono {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.mono__lead {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+
+/* --- 波長入力 --- */
+
+.mono__control-row {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.mono__slider {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--accent);
+  height: 1.5rem;
+}
+
+.mono__number-group {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.mono__number {
+  width: 5rem;
+  padding: 0.4rem 0.5rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+  color: var(--text);
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.mono__number:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.mono__unit {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+
+/* --- 結果 --- */
+
+.mono__result-layout {
+  display: flex;
+  gap: 1.5rem;
+  align-items: stretch;
+}
+
+.mono__swatch {
+  flex: 1 1 55%;
+  min-height: 11rem;
+  border-radius: 0.5rem;
+  /* 暗い色のときに矩形の輪郭が背景に溶けないよう、薄い枠を残す。 */
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 12%);
+  transition: background-color 0.08s linear;
+}
+
+.mono__values {
+  flex: 1 1 45%;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.6rem;
+}
+
+.mono__value-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.mono__value-row dt {
+  flex: 0 0 6.5rem;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.mono__value-row dd {
+  margin: 0;
+  min-width: 0;
+}
+
+.mono__value {
+  padding: 0.15rem 0.4rem;
+  margin: -0.15rem -0.4rem;
+  background: none;
+  border: none;
+  border-radius: 0.3rem;
+  color: var(--text);
+  font: inherit;
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.mono__value:hover {
+  background: var(--bg-panel-hover);
+}
+
+.mono__value--copied {
+  background: var(--accent);
+  color: #0b0d11;
+}
+
+.mono__gamut-note {
+  margin: 1rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: var(--text-dim);
+}
+
+/* --- 明るさモード --- */
+
+.mono__mode {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+  margin: 0;
+  padding: 1rem 1.25rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+}
+
+.mono__mode legend {
+  margin-bottom: 0;
+  padding: 0 0.35rem;
+}
+
+.mono__mode-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  cursor: pointer;
+  flex: 1 1 16rem;
+}
+
+.mono__mode-option input {
+  margin-top: 0.35rem;
+  accent-color: var(--accent);
+  flex-shrink: 0;
+}
+
+.mono__mode-title {
+  display: block;
+  font-size: 0.92rem;
+}
+
+.mono__mode-hint {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+/* --- スペクトル帯 --- */
+
+.mono__spectrum .field-label {
+  margin-top: 0;
+}
+
+.spectrum-bar {
+  position: relative;
+}
+
+.spectrum-bar__canvas {
+  display: block;
+  width: 100%;
+  height: 4.5rem;
+  border-radius: 0.35rem;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.spectrum-bar__ticks {
+  position: relative;
+  height: 1.25rem;
+  margin-top: 0.35rem;
+}
+
+.spectrum-bar__tick {
+  position: absolute;
+  transform: translateX(-50%);
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+@media (max-width: 40rem) {
+  .mono__result-layout {
+    flex-direction: column;
+  }
+
+  .mono__control-row {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .mono__slider {
+    flex-basis: 100%;
+  }
+}

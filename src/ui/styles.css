@@ -1,0 +1,140 @@
+/*
+ * 共通スタイル。
+ *
+ * 暗い配色にしているのは趣味ではなく実用上の理由で、色スウォッチやスペクトル帯は
+ * 周囲が明るいと色の評価が狂う(明るい背景に囲まれた色は暗く沈んで見える)。
+ */
+
+:root {
+  --bg: #101216;
+  --bg-panel: #191c22;
+  --bg-panel-hover: #21252e;
+  --border: #2d323d;
+  --text: #e6e8ec;
+  --text-dim: #9aa1ae;
+  --accent: #6fb3ff;
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, 'Segoe UI', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+  line-height: 1.6;
+  font-feature-settings: 'palt';
+}
+
+#app {
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 4rem;
+}
+
+/* --- ヘッダ --- */
+
+.app-header {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 2rem;
+}
+
+.app-title {
+  font-size: 1.35rem;
+  font-weight: 600;
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+
+.back-link {
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+
+.back-link:hover {
+  color: var(--accent);
+}
+
+/* --- メニュー --- */
+
+.menu-lead {
+  color: var(--text-dim);
+  margin: 0 0 1.5rem;
+}
+
+.menu-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  gap: 1rem;
+}
+
+.menu-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  height: 100%;
+  padding: 1.1rem 1.25rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.15s, border-color 0.15s, transform 0.15s;
+}
+
+.menu-card:hover {
+  background: var(--bg-panel-hover);
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.menu-card__title {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.menu-card__description {
+  font-size: 0.875rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+/* --- エラー表示 --- */
+
+.load-error {
+  padding: 1rem 1.25rem;
+  border: 1px solid #7a3b3b;
+  border-radius: 0.5rem;
+  background: #241a1a;
+  color: #f0c0c0;
+}
+
+/* --- 汎用のパネル / フォーム部品 --- */
+
+.panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  padding: 1.25rem;
+}
+
+.field-label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  margin-bottom: 0.5rem;
+}

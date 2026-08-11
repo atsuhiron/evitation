@@ -1,0 +1,32 @@
+# ビルド成果物 / 依存
+/dist
+node_modules/
+
+# テストカバレッジ
+/coverage
+
+# 環境変数(Vite 規約では *.local が秘密情報を置く場所)
+*.local
+.env
+
+# Vite が設定をバンドルする際の一時ファイル
+vite.config.ts.timestamp-*
+
+# ログ
+*.log
+npm-debug.log*
+
+# エディタ
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code(launch.json に環境依存の絶対パスが入るためローカル扱い)
+.claude/
