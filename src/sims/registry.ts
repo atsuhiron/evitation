@@ -64,6 +64,13 @@ export const sims: readonly SimDefinition[] = [
       '光が大気を通るときの波長ごとの減衰を求める。散乱が λ⁻⁴ に比例するため青から先に失われ、太陽が地平線に近づくほど赤くなる。',
     load: () => import('./rayleigh/index.ts'),
   },
+  {
+    id: 'sky',
+    title: '空の色',
+    description:
+      '太陽の温度と高度から、東の地平線から天頂を通って西の地平線までの空の色を求める。散乱で失われた光がどこへ行ったのかがわかる。',
+    load: () => import('./sky/index.ts'),
+  },
 ];
 
 export function findSim(id: string): SimDefinition | undefined {

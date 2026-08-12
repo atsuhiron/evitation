@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { airMassAtZenithAngle } from '../../physics/air-mass.ts';
 import { transmittance } from '../../physics/rayleigh.ts';
-import { airMassAtZenithAngle, clampAirMass, MAX_AIR_MASS, MIN_AIR_MASS } from './air-mass.ts';
+import { clampAirMass, MAX_AIR_MASS, MIN_AIR_MASS } from './air-mass.ts';
 import { presets } from './presets.ts';
 
 /** air mass から天頂角を逆に求める(単調なので二分法で足りる)。 */

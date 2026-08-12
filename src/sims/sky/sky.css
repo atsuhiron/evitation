@@ -1,0 +1,244 @@
+.sky {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.sky__lead {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+
+/* --- 入力 --- */
+
+.sky__control-row {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.sky__slider {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--accent);
+  height: 1.5rem;
+}
+
+/* --- スライダーの目盛り --- */
+
+.sky__slider-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.sky__slider-wrap .sky__slider {
+  display: block;
+  width: 100%;
+}
+
+.sky__slider-ticks {
+  position: relative;
+  height: 1.1rem;
+  margin-top: 0.1rem;
+}
+
+/*
+ * 目盛りは短い縦線 + ラベル。left はつまみの幅を差し引いた位置に置いてある
+ * (index.ts 側の calc を参照)ので、translateX(-50%) で中心を合わせる。
+ */
+.sky__slider-tick {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  padding-top: 0.45rem;
+  font-size: 0.7rem;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--text-dim);
+}
+
+.sky__slider-tick::before {
+  content: '';
+  position: absolute;
+  top: -0.2rem;
+  left: 50%;
+  width: 1px;
+  height: 0.5rem;
+  background: var(--text-dim);
+}
+
+.sky__number-group {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.sky__number {
+  width: 5.5rem;
+  padding: 0.4rem 0.5rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+  color: var(--text);
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.sky__number:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.sky__unit {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+
+/* --- プリセット --- */
+
+.sky-presets__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.sky-presets__button {
+  padding: 0.4rem 0.85rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.sky-presets__button:hover {
+  background: var(--bg-panel-hover);
+  border-color: var(--accent);
+}
+
+.sky-presets__hint {
+  margin: 0.75rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--text-dim);
+}
+
+/* 2 段目以降(エアロゾル・温度)は、間を少し空けて区切りを作る。 */
+.sky-altitude .sky-presets__hint + .field-label {
+  margin-top: 1.25rem;
+}
+
+/* --- エアロゾルの切替 --- */
+
+.sky__toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.sky__toggle-label input[type='checkbox'] {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* 外しているあいだは触れないことを見た目でも示す。値は残してある。 */
+.sky__slider:disabled,
+.sky__number:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* --- 結果 --- */
+
+.sky-result__layout {
+  display: flex;
+  gap: 1.5rem;
+  align-items: stretch;
+}
+
+.sky-result__swatches {
+  flex: 1 1 55%;
+  min-width: 0;
+  display: flex;
+  gap: 0.6rem;
+}
+
+.sky-result__swatch-wrapper {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+/*
+ * スウォッチの min-height が行の高さを決める。右側(値 + 注記)がこれを超えない
+ * 限り、注記が出ても引っ込んでもパネルの高さは変わらない。
+ * キャプションの分があるので、他ページの同じ枠より少し高く取ってある。
+ */
+.sky-result__swatch {
+  flex: 1;
+  min-height: 13.5rem;
+  border-radius: 0.5rem;
+  /* 暗い色のときに矩形の輪郭が背景に溶けないよう、薄い枠を残す。 */
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 12%);
+  transition: background-color 0.08s linear;
+}
+
+.sky-result__caption {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  text-align: center;
+}
+
+.sky-result__side {
+  flex: 1 1 45%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+/*
+ * 注記の行数が変わっても動かないよう、最大の場合の高さを確保しておく。
+ * 出うるのは高度 0° の 1 本 + 色域外の 1 本 + 白飛びの 1 本。
+ */
+.sky-result__notes {
+  min-height: 5.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.sky-result__note {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.55;
+  color: var(--text-dim);
+}
+
+@media (max-width: 46rem) {
+  .sky-result__layout {
+    flex-direction: column;
+  }
+
+  .sky__control-row {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .sky__slider {
+    flex-basis: 100%;
+  }
+}

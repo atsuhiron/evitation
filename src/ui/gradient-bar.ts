@@ -132,6 +132,20 @@ export class GradientBar {
     this.paint();
   }
 
+  /**
+   * `colorAt` の返す色が変わったときに呼ぶ。帯を作り直して描き直す。
+   *
+   * `refresh()` が幅と高さしか見ないのは、スペクトル帯も色温度帯も色が状態に
+   * 依存しない(波長 → 色、温度 → 色 が固定)ため。空の色の帯は太陽高度と
+   * 温度で全体の色が変わるので、こちらから明示的に無効化する。
+   */
+  recolor(): void {
+    this.baseImage = null;
+    this.renderedWidth = 0;
+    this.renderedHeight = 0;
+    this.refresh();
+  }
+
   setMarkers(markers: readonly GradientMarker[]): void {
     this.markers = markers;
     this.paint();
