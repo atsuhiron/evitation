@@ -57,6 +57,13 @@ export const sims: readonly SimDefinition[] = [
       '温度からプランクの法則で分光分布を求め、その連続スペクトルに対応する色を表示する。ウィーンの変位則と、放射のうち可視域に落ちる割合がわかる。',
     load: () => import('./blackbody/index.ts'),
   },
+  {
+    id: 'rayleigh',
+    title: '大気によるレイリー散乱',
+    description:
+      '光が大気を通るときの波長ごとの減衰を求める。散乱が λ⁻⁴ に比例するため青から先に失われ、太陽が地平線に近づくほど赤くなる。',
+    load: () => import('./rayleigh/index.ts'),
+  },
 ];
 
 export function findSim(id: string): SimDefinition | undefined {

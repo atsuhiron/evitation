@@ -11,9 +11,13 @@ import { xyzToColor, type ColorResult, type NormalizeMode } from '../../color/in
 import { GradientBar } from '../../ui/gradient-bar.ts';
 import { createRadioGroup, type RadioGroup } from '../../ui/radio-group.ts';
 import { ValueList } from '../../ui/value-list.ts';
-import { blackbodyXYZ, luminousEfficacy } from './planck.ts';
-import { defaultPreset, presets } from './presets.ts';
-import { SpectrumChart, type ChartScale } from './spectrum-chart.ts';
+import {
+  blackbodyXYZ,
+  luminousEfficacy,
+  peakWavelengthNm,
+  spectralRadiance,
+} from '../../physics/planck.ts';
+import { SpectrumChart } from '../../ui/spectrum-chart.ts';
 import {
   clampTemperature,
   MAX_TEMPERATURE_K,
@@ -21,10 +25,43 @@ import {
   positionToTemperature,
   SLIDER_STEPS,
   temperatureToPosition,
-} from './temperature.ts';
+} from '../../ui/temperature-axis.ts';
+import { defaultPreset, presets } from './presets.ts';
 
 /** 色温度帯の目盛り。逆数目盛なので低温側が広く、間隔もそれに合わせて粗くしていく。 */
 const BAR_TICKS = [1000, 1500, 2000, 3000, 5000, 10000, 20000];
+
+/**
+ * スペクトル図の波長範囲 [nm]。
+ *
+ * 扱う温度 1000–20000K の λmax は 145–2898nm なので、ピークが窓の端から端まで
+ * 掃引される。可視域だけを描くとピークが見えない温度がほとんどになってしまう。
+ */
+const CHART_LAMBDA_MIN_NM = 100;
+const CHART_LAMBDA_MAX_NM = 3000;
+const CHART_X_TICKS = [500, 1000, 1500, 2000, 2500, 3000];
+
+/**
+ * 対数目盛の範囲 [W·sr⁻¹·m⁻²·nm⁻¹]。
+ *
+ * 上端は 20000K のピーク (1.3e7) が収まる高さ、下端は 1000K でも可視域の赤側が
+ * 見えている高さに取った。1000K の青側はこの床を大きく割るので描かれないが、
+ * 「その温度では青い光が出ていない」という事実そのものなので、それでよい。
+ */
+const LOG_FLOOR = 1e-4;
+const LOG_CEIL = 1e8;
+
+const PEAK_TICKS = [0, 0.25, 0.5, 0.75, 1];
+
+/**
+ * 縦軸の取り方。
+ *
+ * - `peak`: 各温度の曲線を自身のピークで正規化する。形だけを見るので、
+ *   ウィーンの変位則(ピークが可視域を横切っていく)に集中できる
+ * - `log`: 絶対値の対数目盛。曲線が交差せず高温が常に上に来るので、
+ *   シュテファン・ボルツマン則(T⁴ で全体が持ち上がる)が同時に見える
+ */
+type ChartScale = 'peak' | 'log';
 
 interface State {
   temperatureK: number;
@@ -304,7 +341,11 @@ function buildChartPanel(): HTMLElement {
   label.className = 'field-label';
   label.textContent = 'スペクトル(破線はウィーンの変位則が与えるピーク波長)';
 
-  chart = new SpectrumChart();
+  chart = new SpectrumChart({
+    lambdaMin: CHART_LAMBDA_MIN_NM,
+    lambdaMax: CHART_LAMBDA_MAX_NM,
+    xTicks: CHART_X_TICKS,
+  });
 
   section.append(label, chart.element);
   return section;
@@ -365,11 +406,32 @@ function render(): void {
   for (const group of modeGroups) group.sync();
 
   temperatureBar?.setMarkers([{ value: temperatureK }]);
-  // 図の曲線は常に最大成分正規化の色で描く。相対輝度だと低温で見えなくなる。
+  renderChart(temperatureK);
+}
+
+function renderChart(temperatureK: number): void {
+  const log = state.chartScale === 'log';
+  // ピーク正規化はデータ側の割り算として渡す(図は軸の種類しか知らない)。
+  const peak = spectralRadiance(peakWavelengthNm(temperatureK), temperatureK);
+  const lambdaMaxNm = peakWavelengthNm(temperatureK);
+
   chart?.setState({
-    temperatureK,
-    scale: state.chartScale,
-    curveColor: xyzToColor(blackbodyXYZ(temperatureK), 'max').hex,
+    axis: log
+      ? { kind: 'log', floor: LOG_FLOOR, ceil: LOG_CEIL, labelEvery: 2 }
+      : { kind: 'linear', max: 1, ticks: PEAK_TICKS },
+    axisTitle: log ? '分光放射輝度 [W·sr⁻¹·m⁻²·nm⁻¹]' : 'ピークを 1 とした比',
+    curves: [
+      {
+        valueAt: (lambdaNm) => {
+          const value = spectralRadiance(lambdaNm, temperatureK);
+          return log ? value : peak > 0 ? value / peak : 0;
+        },
+        // 曲線は常に最大成分正規化の色で描く。相対輝度だと低温で見えなくなる。
+        color: xyzToColor(blackbodyXYZ(temperatureK), 'max').hex,
+        fill: true,
+      },
+    ],
+    markers: [{ lambdaNm: lambdaMaxNm, label: `λmax ${lambdaMaxNm.toFixed(0)} nm` }],
   });
 }
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { xyzToChromaticity, xyzToColor } from '../../color/index.ts';
+import { xyzToChromaticity, xyzToColor } from '../color/index.ts';
+import { MAX_TEMPERATURE_K, MIN_TEMPERATURE_K } from '../ui/temperature-axis.ts';
 import {
   BOLTZMANN_CONSTANT,
   blackbodyXYZ,
@@ -16,14 +17,6 @@ import {
   WIEN_DISPLACEMENT,
   WIEN_ROOT,
 } from './planck.ts';
-import { presets, PEAK_EFFICACY_TEMPERATURE_K } from './presets.ts';
-import {
-  clampTemperature,
-  MAX_TEMPERATURE_K,
-  MIN_TEMPERATURE_K,
-  positionToTemperature,
-  temperatureToPosition,
-} from './temperature.ts';
 
 /** 対数刻みで λ を並べて台形則で積分する。桁をまたぐ裾まで拾うため。 */
 function integrateSpectrum(
@@ -159,7 +152,11 @@ describe('プランクの法則', () => {
    * 低温 × 短波長では exp が overflow するが、そこは 0 が返るのが正しい。
    */
   it('扱う範囲の全域で有限かつ非負', () => {
-    for (let temperatureK = MIN_TEMPERATURE_K; temperatureK <= MAX_TEMPERATURE_K; temperatureK += 250) {
+    for (
+      let temperatureK = MIN_TEMPERATURE_K;
+      temperatureK <= MAX_TEMPERATURE_K;
+      temperatureK += 250
+    ) {
       for (const lambdaNm of [1, 10, 100, 380, 555, 780, 3000, 1e5, 1e7]) {
         const value = spectralRadiance(lambdaNm, temperatureK);
         expect(Number.isFinite(value), `${temperatureK}K ${lambdaNm}nm`).toBe(true);
@@ -235,7 +232,11 @@ describe('黒体の色', () => {
 
   it('温度が上がるほど色度 x は単調に減少する(赤 → 青)', () => {
     let previous = Infinity;
-    for (let temperatureK = MIN_TEMPERATURE_K; temperatureK <= MAX_TEMPERATURE_K; temperatureK += 100) {
+    for (
+      let temperatureK = MIN_TEMPERATURE_K;
+      temperatureK <= MAX_TEMPERATURE_K;
+      temperatureK += 100
+    ) {
       const { x } = xyzToChromaticity(blackbodyXYZ(temperatureK));
       expect(x, `${temperatureK}K`).toBeLessThan(previous);
       previous = x;
@@ -269,20 +270,37 @@ describe('黒体の色', () => {
 });
 
 describe('発光効率', () => {
+  /**
+   * 効率が最大になる温度を、プリセット側の黄金分割探索とは独立に総当たりで求める。
+   * プリセットの値が正しいかどうかは presets.test.ts がこの性質を使って検査する。
+   */
+  const peakTemperatureK = ((): number => {
+    let best = { temperatureK: 0, efficacy: -Infinity };
+    for (let temperatureK = 3000; temperatureK <= 12000; temperatureK += 5) {
+      const efficacy = luminousEfficacy(temperatureK);
+      if (efficacy > best.efficacy) best = { temperatureK, efficacy };
+    }
+    return best.temperatureK;
+  })();
+
   it('最大でも約 95 lm/W', () => {
-    const peak = luminousEfficacy(PEAK_EFFICACY_TEMPERATURE_K);
+    const peak = luminousEfficacy(peakTemperatureK);
     expect(peak).toBeGreaterThan(90);
     expect(peak).toBeLessThan(100);
   });
 
   it('最大を与える温度が 6000–7000K に入る', () => {
-    expect(PEAK_EFFICACY_TEMPERATURE_K).toBeGreaterThan(6000);
-    expect(PEAK_EFFICACY_TEMPERATURE_K).toBeLessThan(7000);
+    expect(peakTemperatureK).toBeGreaterThan(6000);
+    expect(peakTemperatureK).toBeLessThan(7000);
   });
 
-  it('探索で得た温度が他のどの温度よりも高い効率を与える', () => {
-    const peak = luminousEfficacy(PEAK_EFFICACY_TEMPERATURE_K);
-    for (let temperatureK = MIN_TEMPERATURE_K; temperatureK <= MAX_TEMPERATURE_K; temperatureK += 50) {
+  it('効率は温度について単峰(最大の外側では単調に落ちる)', () => {
+    const peak = luminousEfficacy(peakTemperatureK);
+    for (
+      let temperatureK = MIN_TEMPERATURE_K;
+      temperatureK <= MAX_TEMPERATURE_K;
+      temperatureK += 50
+    ) {
       expect(luminousEfficacy(temperatureK), `${temperatureK}K`).toBeLessThanOrEqual(peak + 1e-9);
     }
   });
@@ -294,55 +312,5 @@ describe('発光効率', () => {
   /** 可視域から外れた温度では、放射の総量を揃えても目に見える分はごく僅かになる。 */
   it('1000K の効率は 1 lm/W 未満', () => {
     expect(luminousEfficacy(1000)).toBeLessThan(1);
-  });
-});
-
-describe('温度軸', () => {
-  it('位置と温度が往復する', () => {
-    for (let i = 0; i <= 20; i += 1) {
-      const t = i / 20;
-      expect(temperatureToPosition(positionToTemperature(t)), `t=${t}`).toBeCloseTo(t, 12);
-    }
-  });
-
-  it('両端が範囲の両端に一致する', () => {
-    expect(positionToTemperature(0)).toBeCloseTo(MIN_TEMPERATURE_K, 9);
-    expect(positionToTemperature(1)).toBeCloseTo(MAX_TEMPERATURE_K, 9);
-  });
-
-  /**
-   * 逆数目盛にした狙いそのもの。温度で等分すると 1000–4000K は全体の 16% しか
-   * 取れないが、1/T で並べれば半分以上を占める。
-   */
-  it('1000–4000K が帯の半分以上を占める', () => {
-    expect(temperatureToPosition(4000)).toBeGreaterThan(0.5);
-  });
-
-  it('範囲外の入力は端に丸められる', () => {
-    expect(clampTemperature(0)).toBe(MIN_TEMPERATURE_K);
-    expect(clampTemperature(1e9)).toBe(MAX_TEMPERATURE_K);
-    expect(clampTemperature(5777.6)).toBe(5778);
-  });
-});
-
-describe('プリセット', () => {
-  it.each(presets.map((p) => [p.name, p] as const))('%s: 温度が範囲内の整数', (_name, preset) => {
-    expect(preset.temperatureK).toBeGreaterThanOrEqual(MIN_TEMPERATURE_K);
-    expect(preset.temperatureK).toBeLessThanOrEqual(MAX_TEMPERATURE_K);
-    expect(Number.isInteger(preset.temperatureK)).toBe(true);
-  });
-
-  it('ラベルに書いた温度と実際の温度が一致する', () => {
-    const preset = presets.find((p) => p.name.startsWith('発光効率が最大'));
-    expect(preset?.name).toContain(String(PEAK_EFFICACY_TEMPERATURE_K));
-    expect(preset?.temperatureK).toBe(PEAK_EFFICACY_TEMPERATURE_K);
-  });
-
-  /** 電球色と青白い星が、色として実際にはっきり違うこと。 */
-  it('白熱電球と青色巨星の見た目が明確に異なる', () => {
-    const bulb = xyzToColor(blackbodyXYZ(2856), 'max').rgb8;
-    const star = xyzToColor(blackbodyXYZ(20000), 'max').rgb8;
-    const distance = Math.hypot(bulb[0] - star[0], bulb[1] - star[1], bulb[2] - star[2]);
-    expect(distance).toBeGreaterThan(80);
   });
 });

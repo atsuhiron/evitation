@@ -6,8 +6,8 @@
  * プリセット強度を目標色度から解いているのと同じ理由。
  */
 
-import { luminousEfficacy } from './planck.ts';
-import { clampTemperature } from './temperature.ts';
+import { luminousEfficacy } from '../../physics/planck.ts';
+import { clampTemperature } from '../../ui/temperature-axis.ts';
 
 export interface TemperaturePreset {
   readonly name: string;
