@@ -2,6 +2,8 @@
 
 ブラウザで動く物理光学シミュレータ集。トップページのメニューから各シミュレータを開く。
 
+**公開ページ: https://atsuhiron.github.io/evitation**
+
 依存は Vite / TypeScript / Vitest のみで、実行時ライブラリは使っていない。
 
 ## セットアップ
