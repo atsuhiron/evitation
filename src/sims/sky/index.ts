@@ -19,11 +19,11 @@ import {
 } from '../../color/index.ts';
 import { blackbodyXYZ, normalizedSpectrum } from '../../physics/planck.ts';
 import {
-  createSkyModel,
   sunSkyAngleDeg,
+  SPECTRUM_TABLE_LAMBDA_MIN,
   type SkyConditions,
-  type SkyModel,
 } from '../../physics/sky.ts';
+import { backend, initWasmBackend, type SkyBackendModel } from '../../physics/sky-backend.ts';
 import { GradientBar } from '../../ui/gradient-bar.ts';
 import { createRadioGroup, type RadioGroup } from '../../ui/radio-group.ts';
 import { SpectrumChart, type ChartCurve } from '../../ui/spectrum-chart.ts';
@@ -134,8 +134,18 @@ let presetHint: HTMLElement;
  * `GradientBar` の `colorAt` は構築時に閉じ込められるので、状態はここを経由して渡す。
  * 色が変わったら `bar.recolor()` を呼ぶこと(呼ばないと帯だけ古いまま残る)。
  */
-let currentModel: SkyModel = createSkyModel(currentConditions());
+// 描画のたびに作り直す。wasm 実装ではハンドルを握るので、**作り直す前に必ず
+// free() すること**(解放を怠るとスライダーを動かすたびに線形メモリが増える)。
+let currentModel: SkyBackendModel | null = null;
 let currentScale = 1;
+
+/**
+ * いまページが載っているか。
+ *
+ * wasm の読み込みは待たずに走らせるので、解決したときにはもうページを
+ * 離れていることがある。そのまま描くと破棄済みの帯や図を触ることになる。
+ */
+let mounted = false;
 
 /**
  * この描画で求めた三刺激値の覚え書き。
@@ -146,12 +156,39 @@ let currentScale = 1;
  */
 let xyzCache = new Map<number, XYZ>();
 
+/**
+ * 覚え書きを引く。無ければ 1 方向だけ解いて足す。
+ *
+ * 帯の色を塗る直前に `renderNow` がまとめて解いて埋めておくので、通常はここが
+ * 当たる。**当たらない経路も残す必要がある** — `GradientBar` の標本数は
+ * `min(canvas の幅, maxSamples)` なので、幅の狭い画面では 360 未満になり、
+ * `barSampleAngles()` と角度が一致しなくなる。
+ */
 function cachedXYZ(angleDeg: number): XYZ {
   const hit = xyzCache.get(angleDeg);
   if (hit !== undefined) return hit;
-  const value = currentModel.xyzAt(angleDeg);
+  const value = model().xyzAt(angleDeg);
   xyzCache.set(angleDeg, value);
   return value;
+}
+
+/**
+ * wasm 実装を使うよう指定されているか。
+ *
+ * **クエリはハッシュではなく検索文字列側に置く。**ルータの `parseHash` は
+ * `#/([\w-]+)` しか受け付けないので、`#/sky?wasm=1` と書くと sky ページ自体に
+ * 辿り着けない。デバッグ用の切り替えのためにルータを緩めたくはない。
+ */
+function wasmRequested(): boolean {
+  return new URLSearchParams(location.search).get('wasm') === '1';
+}
+
+/** 描画中に必ず存在する現在のモデル。 */
+function model(): SkyBackendModel {
+  if (currentModel === null) {
+    currentModel = backend().createModel(currentConditions());
+  }
+  return currentModel;
 }
 
 // --- 色の計算 ------------------------------------------------------------------
@@ -216,20 +253,32 @@ let cachedAbsoluteScale: number | null = null;
 function absoluteScale(): number {
   if (cachedAbsoluteScale !== null) return cachedAbsoluteScale;
 
+  // 走査は粗くてよい。上限を決めるだけで、帯の全角度を見る必要はない。
+  const angles = new Float64Array(19);
+  for (let i = 0; i < angles.length; i += 1) angles[i] = -90 + i * 10;
+
   let peak = 0;
   for (const multipleScattering of [false, true]) {
     for (const aerosolOpticalDepth of [0, MAX_AEROSOL]) {
       for (let sunAltitudeDeg = 0; sunAltitudeDeg <= 90; sunAltitudeDeg += 10) {
-        const model = createSkyModel({
+        const scan = backend().createModel({
           sunAltitudeDeg,
           temperatureK: DEFAULT_TEMPERATURE_K,
           multipleScattering,
           aerosolOpticalDepth,
         });
-        // 走査は粗くてよい。上限を決めるだけで、帯の全角度を見る必要はない。
-        for (let angle = -90; angle <= 90; angle += 10) {
-          const { linearRGB } = xyzToColor(model.xyzAt(angle), 'luminance');
-          peak = Math.max(peak, linearRGB[0], linearRGB[1], linearRGB[2]);
+        // ここで作るモデルは 40 個。同じ反復の中で必ず解放する。
+        try {
+          const flat = scan.xyzMany(angles);
+          for (let i = 0; i < angles.length; i += 1) {
+            const { linearRGB } = xyzToColor(
+              [flat[i * 3]!, flat[i * 3 + 1]!, flat[i * 3 + 2]!],
+              'luminance',
+            );
+            peak = Math.max(peak, linearRGB[0], linearRGB[1], linearRGB[2]);
+          }
+        } finally {
+          scan.free();
         }
       }
     }
@@ -251,18 +300,39 @@ function colorAt(angleDeg: number): ColorResult {
 
 // --- 状態の更新 ----------------------------------------------------------------
 
+/**
+ * 再描画をフレームに 1 回へ束ねる。
+ *
+ * 1 回の描画は帯の 363 方向ぶんの球殻の行進を伴うので、`input` イベントごとに
+ * 同期で走らせるとスライダーのドラッグ中に描画がキューへ積み上がり、
+ * **入力に対して際限なく遅れていく**。フレームに 1 回へ潰せば、遅れは
+ * 常に高々 1 描画ぶんに収まる。
+ *
+ * 状態はイベントハンドラが即座に書き替え、`renderNow` は走る時点の `state` を
+ * 読み直すので、束ねても取りこぼしは出ない。
+ */
+let renderHandle = 0;
+
+function scheduleRender(): void {
+  if (renderHandle !== 0) return;
+  renderHandle = requestAnimationFrame(() => {
+    renderHandle = 0;
+    renderNow();
+  });
+}
+
 function setAltitude(value: number): void {
   const sunAltitudeDeg = clampAltitude(value);
   if (sunAltitudeDeg === state.sunAltitudeDeg) return;
   state.sunAltitudeDeg = sunAltitudeDeg;
-  render();
+  scheduleRender();
 }
 
 function setTemperature(value: number): void {
   const temperatureK = clampTemperature(value);
   if (temperatureK === state.temperatureK) return;
   state.temperatureK = temperatureK;
-  render();
+  scheduleRender();
 }
 
 function setAerosol(value: number): void {
@@ -270,7 +340,7 @@ function setAerosol(value: number): void {
   const clamped = Math.round(Math.min(MAX_AEROSOL, Math.max(MIN_AEROSOL, stepped)) * 100) / 100;
   if (clamped === state.aerosolOpticalDepth) return;
   state.aerosolOpticalDepth = clamped;
-  render();
+  scheduleRender();
 }
 
 // --- 部品の組み立て -----------------------------------------------------------
@@ -426,7 +496,7 @@ function buildControlPanel(): HTMLElement {
   aerosolCheckbox.checked = state.aerosolEnabled;
   aerosolCheckbox.addEventListener('change', () => {
     state.aerosolEnabled = aerosolCheckbox.checked;
-    render();
+    scheduleRender();
   });
 
   const aerosolLabel = document.createElement('label');
@@ -608,7 +678,7 @@ function buildModePanel(): HTMLElement {
       () => (state.multipleScattering ? 'multiple' : 'single'),
       (value) => {
         state.multipleScattering = value === 'multiple';
-        render();
+        scheduleRender();
       },
     ),
     createRadioGroup<BrightnessMode>(
@@ -629,7 +699,7 @@ function buildModePanel(): HTMLElement {
       () => state.brightness,
       (value) => {
         state.brightness = value;
-        render();
+        scheduleRender();
       },
     ),
   ];
@@ -673,13 +743,43 @@ function renderNotes(zenith: ColorResult): void {
   );
 }
 
+/**
+ * 401 点の分光放射輝度の表を、波長を受ける関数に変える。
+ *
+ * グラフは画素ごとに値を要るので、表のまま渡して**ここで線形補間する**。
+ * スペクトルはプランク曲線 × exp(−τ(λ)m) で 1nm の刻みに対して十分滑らかなので、
+ * 補間の誤差は相対 1e-6 程度 — 縦 300px の図では見えない。
+ *
+ * 表で受け渡すのは、ワーカーへ移すときに `Float64Array` がそのまま転送できるのと、
+ * 解放の要るハンドルを増やさずに済むため(`cmfAt` の補間と同じ形にしてある)。
+ */
+function samplerFromTable(table: Float64Array): (lambdaNm: number) => number {
+  return (lambdaNm) => {
+    const position = lambdaNm - SPECTRUM_TABLE_LAMBDA_MIN;
+    if (!(position >= 0) || position > table.length - 1) return 0;
+    const index = Math.floor(position);
+    const fraction = position - index;
+    const value = table[index]!;
+    if (fraction === 0 || index + 1 >= table.length) return value;
+    return value + (table[index + 1]! - value) * fraction;
+  };
+}
+
 function renderChart(sunAngle: number): void {
-  // 方向ごとの標本器は 1 度だけ作る。曲線は画素ごとに呼ばれるので、
-  // ここで幾何を閉じ込めておかないと air mass を毎画素で解き直すことになる。
+  // 方向ごとに球殻の行進は 1 度だけ。曲線は画素ごとに呼ばれるので、
+  // ここで表に焼いておかないと幾何を毎画素で解き直すことになる。
   const directions = [
-    { angle: 0, label: '天頂', sample: currentModel.samplerFor(0) },
-    { angle: sunAngle, label: '太陽の方向', sample: currentModel.samplerFor(sunAngle) },
-    { angle: -sunAngle, label: '太陽の反対側', sample: currentModel.samplerFor(-sunAngle) },
+    { angle: 0, label: '天頂', sample: samplerFromTable(model().spectrumTable(0)) },
+    {
+      angle: sunAngle,
+      label: '太陽の方向',
+      sample: samplerFromTable(model().spectrumTable(sunAngle)),
+    },
+    {
+      angle: -sunAngle,
+      label: '太陽の反対側',
+      sample: samplerFromTable(model().spectrumTable(-sunAngle)),
+    },
   ] as const;
 
   // 3 方向のうち最も大きい放射輝度を 1 とする。方向ごとに正規化すると
@@ -726,14 +826,25 @@ function renderChart(sunAngle: number): void {
   });
 }
 
-function render(): void {
+function renderNow(): void {
   const { sunAltitudeDeg, temperatureK } = state;
   // 太陽が沈むと空の角度が 90° を超えるので、代表方向は地平線で止める。
   const sunAngle = representativeAngle(sunAltitudeDeg);
 
-  currentModel = createSkyModel(currentConditions());
+  // wasm 実装ではハンドルなので、作り直す前に必ず解放する。
+  currentModel?.free();
+  currentModel = backend().createModel(currentConditions());
   // 覚え書きはモデルと一対一。作り直したら必ず捨てる。
   xyzCache = new Map<number, XYZ>();
+
+  // 帯が要る全方向を **1 回の呼び出しで** 解いて覚え書きに詰める。方向ごとに
+  // 呼ぶと wasm との境界を 363 回跨ぐことになり、まとめた意味がなくなる。
+  const primed = Float64Array.from([...barSampleAngles(), 0, sunAngle, -sunAngle]);
+  const flat = currentModel.xyzMany(primed);
+  for (let i = 0; i < primed.length; i += 1) {
+    xyzCache.set(primed[i]!, [flat[i * 3]!, flat[i * 3 + 1]!, flat[i * 3 + 2]!]);
+  }
+
   currentScale =
     state.brightness === 'absolute'
       ? absoluteScale()
@@ -791,6 +902,8 @@ function render(): void {
 // --- ライフサイクル -----------------------------------------------------------
 
 export function mount(root: HTMLElement): void {
+  mounted = true;
+
   const container = document.createElement('div');
   container.className = 'sky';
 
@@ -813,13 +926,50 @@ export function mount(root: HTMLElement): void {
   );
   root.append(container);
 
-  render();
+  // ここだけは同期で描く。直後の refresh() が状態の書き込み済みを前提にしている。
+  renderNow();
   // DOM に入って幅が確定してから描く(ResizeObserver の初回通知には頼らない)。
   bar?.refresh();
   chart?.refresh();
+
+  /*
+   * wasm 実装は **既定では使わない**。URL に `wasm=1` を付けたときだけ読む。
+   *
+   * デスクトップ (V8) で実測すると wasm のほうが 1.8 倍**遅い**。この計算は
+   * ほぼ全部が exp(1 描画あたり 450 万回)で、wasm には exp 命令が無いため
+   * Rust の f64::exp はソフトウェア実装になる — 実測 6.6ns/回 に対して
+   * V8 の Math.exp は 3.9ns/回。表引き方式を自前で書いても 6.2ns 止まりで、
+   * 差は埋まらなかった。
+   *
+   * ただし測れたのはデスクトップだけで、**このページが重いのはスマートフォン**。
+   * モバイルでは JIT の暖機や GC の効き方が違うので、結論が変わりうる。
+   * そこを実機で比べられるよう、切り替えだけ残してある:
+   *
+   *   ?wasm=1#/sky   … wasm 実装
+   *   #/sky          … TypeScript 実装(既定)
+   *
+   * 読み込みは待たない。初回描画を取得と instantiate に待たせる理由がないし、
+   * 待たない作りなら取得に失敗しても「遅いが動くページ」に落ちる。
+   */
+  if (wasmRequested()) {
+    void initWasmBackend().then((ready) => {
+      if (ready && mounted) scheduleRender();
+    });
+  }
 }
 
 export function unmount(): void {
+  mounted = false;
+  // DOM の外にぶら下がるものを先に解除する。予約したまま破棄すると、
+  // 破棄済みの帯や図に対してコールバックが走る。
+  if (renderHandle !== 0) {
+    cancelAnimationFrame(renderHandle);
+    renderHandle = 0;
+  }
+  // 予約を外してから解放する。逆にすると、キューに残ったコールバックが
+  // 解放済みのモデルを触りにいく。
+  currentModel?.free();
+  currentModel = null;
   bar?.destroy();
   bar = null;
   chart?.destroy();

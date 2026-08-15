@@ -471,8 +471,19 @@ export function multipleScatteringFloor(
 
 // --- τ(λ) のキャッシュ ------------------------------------------------------------
 
-const TAU_LAMBDA_MIN = SPECTRUM_OPTIONS.lambdaMin;
-const TAU_LAMBDA_MAX = SPECTRUM_OPTIONS.lambdaMax;
+/**
+ * 波長ごとの表(τ・入射スペクトル・多重散乱の下駄)を張る 1nm 格子。
+ *
+ * バックエンドが返す分光放射輝度の表もこの格子に載せる。Rust 実装も同じ格子を
+ * 使うので、突き合わせるときに端点の解釈がずれない。
+ */
+export const SPECTRUM_TABLE_LAMBDA_MIN = SPECTRUM_OPTIONS.lambdaMin;
+export const SPECTRUM_TABLE_LAMBDA_MAX = SPECTRUM_OPTIONS.lambdaMax;
+export const SPECTRUM_TABLE_LENGTH =
+  SPECTRUM_TABLE_LAMBDA_MAX - SPECTRUM_TABLE_LAMBDA_MIN + 1;
+
+const TAU_LAMBDA_MIN = SPECTRUM_TABLE_LAMBDA_MIN;
+const TAU_LAMBDA_MAX = SPECTRUM_TABLE_LAMBDA_MAX;
 
 /**
  * レイリーの光学的厚さは波長だけで決まり、パラメータには依存しない。

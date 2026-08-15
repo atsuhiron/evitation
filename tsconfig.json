@@ -18,7 +18,9 @@
     "noUncheckedIndexedAccess": true,
     "erasableSyntaxOnly": true,
 
-    "types": ["vite/client"]
+    // node は wasm の差分テストのためだけに要る(バイト列を読んで
+    // WebAssembly.instantiate に渡す)。実行時の依存ではない。
+    "types": ["vite/client", "node"]
   },
   "include": ["src", "vite.config.ts"]
 }

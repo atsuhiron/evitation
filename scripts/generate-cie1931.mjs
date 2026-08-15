@@ -1,10 +1,14 @@
 /**
- * src/color/cie1931-data.ts を生成する。
+ * src/color/cie1931-data.ts と rust/src/cie1931_data.rs を生成する。
  *
  * CIE 1931 2° 標準観測者の等色関数を colour-science のデータセットから取り出し、
- * TypeScript のテーブルとして書き出す。生成物はコミットするので、
+ * TypeScript と Rust のテーブルとして書き出す。生成物はコミットするので、
  * 通常の開発でこのスクリプトを走らせる必要はない
  * (データを更新したい / 出所を検算したいときだけ)。
+ *
+ * **2 つの出力は同じ `rows` を同じ `validate()` に通してから書く。**空の色ページの
+ * 分光積分は wasm 側にも同じテーブルが要るが、取得と検証を二重に持つと
+ * 片方だけが古くなる余地ができる。取得 1 回・検証 1 回・書き出し 2 回。
  *
  *   node scripts/generate-cie1931.mjs
  *
@@ -14,7 +18,8 @@
  * この等色関数の値は CIE 由来の同一データ。
  */
 
-import { writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const SOURCE_URL =
@@ -22,6 +27,7 @@ const SOURCE_URL =
 const OBSERVER_KEY = 'CIE 1931 2 Degree Standard Observer';
 
 const OUTPUT_PATH = fileURLToPath(new URL('../src/color/cie1931-data.ts', import.meta.url));
+const RUST_OUTPUT_PATH = fileURLToPath(new URL('../rust/src/cie1931_data.rs', import.meta.url));
 
 /** cmfs.py の該当ブロックから `波長: (x, y, z)` の行を拾う。 */
 function parseObserver(source, observerKey) {
@@ -124,3 +130,80 @@ ${lines.join('\n')}
 
 await writeFile(OUTPUT_PATH, output, 'utf8');
 console.log(`${OUTPUT_PATH} を生成しました (${rows.length} 点, ${flat.length} 値)`);
+
+// --- Rust 側 --------------------------------------------------------------------
+
+/**
+ * Rust の f64 リテラルとして書く。
+ *
+ * Number#toString は往復可能な最短表現を返すのでそのまま使えるが、`0` や `1` の
+ * ような整数値は Rust では**整数リテラル**になってしまい、`[f64; N]` の中で
+ * 型エラーになる。小数点も指数もなければ `.0` を足す。
+ */
+function rustFloat(value) {
+  const text = String(value);
+  return /[.e]/.test(text) ? text : `${text}.0`;
+}
+
+const rustLines = rows.map(
+  ([lambda, x, y, z]) =>
+    `    ${rustFloat(x)}, ${rustFloat(y)}, ${rustFloat(z)}, // ${lambda}nm`,
+);
+
+const rustOutput = `//! CIE 1931 2° 標準観測者 等色関数 x̄(λ), ȳ(λ), z̄(λ)。
+//!
+//! !!! このファイルは scripts/generate-cie1931.mjs による生成物です。手で編集しないこと !!!
+//!
+//! src/color/cie1931-data.ts と同じ取得・同じ検証から書き出しているので、
+//! 両者は常に同じ値を持つ。
+//!
+//! 出典: ${OBSERVER_KEY}
+//!   経由: ${SOURCE_URL}
+//!         (colour-science / BSD-3-Clause。値は CIE 由来のもので、
+//!          一次配布元は cvrl.org = Colour & Vision Research Laboratory, UCL)
+//! 範囲: ${min}–${max}nm / ${step}nm 刻み / ${rows.length} 点
+
+pub const CMF_LAMBDA_MIN: f64 = ${rustFloat(min)};
+pub const CMF_LAMBDA_MAX: f64 = ${rustFloat(max)};
+pub const CMF_LAMBDA_STEP: f64 = ${rustFloat(step)};
+pub const CMF_SAMPLE_COUNT: usize = ${rows.length};
+
+/// [x̄, ȳ, z̄] を波長順に平坦化したもの。
+/// 波長 λ に対応する添字は (λ - CMF_LAMBDA_MIN) * 3。
+pub static CMF_DATA: [f64; ${flat.length}] = [
+${rustLines.join('\n')}
+];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn 長さが標本数と整合する() {
+        assert_eq!(CMF_DATA.len(), CMF_SAMPLE_COUNT * 3);
+        assert_eq!(
+            CMF_SAMPLE_COUNT,
+            (CMF_LAMBDA_MAX - CMF_LAMBDA_MIN) as usize + 1
+        );
+    }
+
+    /// ȳ は視感度関数そのもので、定義上ピークは 555nm 付近のちょうど 1.0。
+    /// 列の取り違えやスケールの誤りを 1 点で捕まえられる。
+    #[test]
+    fn 視感度のピークが555nmで1になる() {
+        let mut peak_index = 0;
+        for i in 0..CMF_SAMPLE_COUNT {
+            if CMF_DATA[i * 3 + 1] > CMF_DATA[peak_index * 3 + 1] {
+                peak_index = i;
+            }
+        }
+        let peak_lambda = CMF_LAMBDA_MIN + peak_index as f64;
+        assert!((CMF_DATA[peak_index * 3 + 1] - 1.0).abs() < 1e-3);
+        assert!((peak_lambda - 555.0).abs() < 5.0);
+    }
+}
+`;
+
+await mkdir(dirname(RUST_OUTPUT_PATH), { recursive: true });
+await writeFile(RUST_OUTPUT_PATH, rustOutput, 'utf8');
+console.log(`${RUST_OUTPUT_PATH} を生成しました (${rows.length} 点, ${flat.length} 値)`);
