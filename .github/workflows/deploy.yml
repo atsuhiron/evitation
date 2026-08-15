@@ -27,27 +27,6 @@ jobs:
           node-version: 20
           cache: npm
 
-      # rust/Cargo.toml が存在するときだけ動く。wasm クレートを追加したら自動で有効になる。
-      - name: Setup Rust
-        if: hashFiles('rust/Cargo.toml') != ''
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
-
-      - name: Cache Cargo
-        if: hashFiles('rust/Cargo.toml') != ''
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: rust -> target
-
-      - name: Install wasm-pack
-        if: hashFiles('rust/Cargo.toml') != ''
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-
-      - name: Build wasm crate
-        if: hashFiles('rust/Cargo.toml') != ''
-        run: wasm-pack build rust --target web --out-dir ../src/wasm
-
       - name: Install dependencies
         run: npm ci
 

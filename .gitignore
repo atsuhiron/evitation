@@ -1,10 +1,5 @@
 # ビルド成果物 / 依存
 /dist
-
-# Rust のビルド中間物。wasm-pack の出力 (src/wasm/) のほうは cie1931-data.ts と
-# 同じ扱いで、生成物だが **コミットする** — Rust ツールチェーンを入れていなくても
-# dev / test / typecheck / build が通るようにするため。
-rust/target/
 node_modules/
 
 # テストカバレッジ
